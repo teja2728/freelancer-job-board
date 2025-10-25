@@ -6,7 +6,18 @@ const userSchema = new mongoose.Schema(
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true },
     password: { type: String, required: true, minlength: 6 },
-    role: { type: String, enum: ['Client', 'Freelancer'], required: true }
+    role: { type: String, enum: ['Client', 'Freelancer'], required: true },
+    skills: [{ type: String }],
+    bio: { type: String, default: '' },
+    rating: { type: Number, default: 0 },
+    reviewCount: { type: Number, default: 0 },
+    reviews: [
+      {
+        reviewer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        comment: { type: String, default: '' },
+        stars: { type: Number, min: 1, max: 5 }
+      }
+    ]
   },
   { timestamps: true }
 );

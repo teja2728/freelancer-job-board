@@ -1,5 +1,6 @@
 import { validationResult } from 'express-validator';
 import Job from '../models/Job.js';
+import User from '../models/User.js';
 
 export const createJob = async (req, res) => {
   const errors = validationResult(req);
@@ -168,6 +169,73 @@ export const markCompleted = async (req, res) => {
     job.status = 'Completed';
     await job.save();
     res.json(job);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const assignFreelancer = async (req, res) => {
+  try {
+    const { id: jobId, freelancerId } = req.params;
+    const job = await Job.findById(jobId);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+    if (job.clientId.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Not your job' });
+    if (job.status !== 'Open') return res.status(400).json({ message: 'Job not open' });
+
+    job.freelancerId = freelancerId;
+    job.status = 'In Progress';
+    // mark accepted bid if exists
+    job.bids = job.bids.map(b => ({ ...b.toObject(), status: b.freelancerId.toString() === freelancerId ? 'Accepted' : 'Rejected' }));
+    await job.save();
+    res.json(job);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const updateStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const allowed = ['Open', 'In Progress', 'Completed'];
+    if (!allowed.includes(status)) return res.status(400).json({ message: 'Invalid status' });
+    const job = await Job.findById(id);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+    if (job.clientId.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Not your job' });
+    job.status = status;
+    await job.save();
+    res.json(job);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const search = async (req, res) => {
+  try {
+    const { q = '', type = 'all', minRating, category, page = 1, limit = 10, sort = 'latest' } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+    const results = {};
+
+    if (type === 'all' || type === 'jobs') {
+      const jobFilter = {};
+      if (q) jobFilter.$or = [{ title: { $regex: q, $options: 'i' } }, { description: { $regex: q, $options: 'i' } }];
+      if (category) jobFilter.category = category;
+      const jobSort = sort === 'budget' ? { budget: 1 } : { createdAt: -1 };
+      const jobs = await Job.find(jobFilter).sort(jobSort).skip(skip).limit(Number(limit));
+      const total = await Job.countDocuments(jobFilter);
+      results.jobs = { items: jobs, total };
+    }
+
+    if (type === 'all' || type === 'freelancers') {
+      const userFilter = { role: 'Freelancer' };
+      if (q) userFilter.$or = [{ name: { $regex: q, $options: 'i' } }, { skills: { $elemMatch: { $regex: q, $options: 'i' } } }];
+      if (minRating) userFilter.rating = { $gte: Number(minRating) };
+      const freelancers = await User.find(userFilter).sort({ rating: -1 }).skip(skip).limit(Number(limit)).select('-password');
+      const total = await User.countDocuments(userFilter);
+      results.freelancers = { items: freelancers, total };
+    }
+
+    res.json(results);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }

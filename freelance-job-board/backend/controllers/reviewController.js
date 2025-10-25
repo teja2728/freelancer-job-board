@@ -1,6 +1,7 @@
 import { validationResult } from 'express-validator';
 import Review from '../models/Review.js';
 import Job from '../models/Job.js';
+import User from '../models/User.js';
 
 export const addReview = async (req, res) => {
   const errors = validationResult(req);
@@ -17,6 +18,19 @@ export const addReview = async (req, res) => {
     if (exists) return res.status(400).json({ message: 'Already reviewed' });
 
     const review = await Review.create({ jobId, clientId: req.user._id, freelancerId, rating, comment });
+
+    // Update freelancer aggregate rating and embedded reviews list
+    const freelancer = await User.findById(freelancerId);
+    if (freelancer) {
+      const newCount = (freelancer.reviewCount || 0) + 1;
+      const newRating = (((freelancer.rating || 0) * (freelancer.reviewCount || 0)) + Number(rating)) / newCount;
+      freelancer.reviewCount = newCount;
+      freelancer.rating = Number(newRating.toFixed(2));
+      freelancer.reviews = freelancer.reviews || [];
+      freelancer.reviews.push({ reviewer: req.user._id, comment: comment || '', stars: Number(rating) });
+      await freelancer.save();
+    }
+
     res.status(201).json(review);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
@@ -32,4 +46,11 @@ export const getFreelancerReviews = async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
+};
+
+export const addReviewByFreelancerId = async (req, res) => {
+  const { freelancerId } = req.params;
+  const { jobId, rating, comment } = req.body || {};
+  req.body = { jobId, freelancerId, rating, comment };
+  return addReview(req, res);
 };
