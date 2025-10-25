@@ -9,6 +9,9 @@ import JobDetails from './pages/JobDetails'
 import PostJob from './pages/PostJob'
 import ProtectedRoute from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext.jsx'
+import FreelancerRoute from './components/FreelancerRoute'
+import { Toaster } from 'react-hot-toast'
+import ClientJobDetails from './pages/ClientJobDetails'
 
 export default function App() {
   return (
@@ -20,8 +23,22 @@ export default function App() {
             <Route path="/" element={<Navigate to="/jobs" />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/jobs" element={<JobList />} />
-            <Route path="/jobs/:id" element={<JobDetails />} />
+            <Route
+              path="/jobs"
+              element={
+                <FreelancerRoute>
+                  <JobList />
+                </FreelancerRoute>
+              }
+            />
+            <Route
+              path="/jobs/:id"
+              element={
+                <FreelancerRoute>
+                  <JobDetails />
+                </FreelancerRoute>
+              }
+            />
             <Route
               path="/dashboard"
               element={
@@ -38,8 +55,17 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/client/jobs/:id"
+              element={
+                <ProtectedRoute role="Client">
+                  <ClientJobDetails />
+                </ProtectedRoute>
+              }
+            />
           </Routes>
         </main>
+        <Toaster position="top-right" />
         <Footer />
       </div>
     </AuthProvider>

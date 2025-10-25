@@ -20,6 +20,9 @@ export const sendMessage = async (req, res) => {
     }
     chat.messages.push({ senderId: req.user._id, receiverId, text })
     await chat.save()
+    const io = req.app.get('io')
+    const payload = { senderId: req.user._id.toString(), receiverId, jobId, text, timestamp: Date.now() }
+    io?.to(`job:${jobId}`).emit('chat:message', payload)
     res.status(201).json(chat)
   } catch (err) {
     res.status(500).json({ message: 'Server error' })

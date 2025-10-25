@@ -116,8 +116,15 @@ export const placeBid = async (req, res) => {
     const already = job.bids.find(b => b.freelancerId.toString() === req.user._id.toString());
     if (already) return res.status(400).json({ message: 'Already bid' });
 
-    job.bids.push({ freelancerId: req.user._id, amount: req.body.amount, message: req.body.message || '' });
+    const bid = { freelancerId: req.user._id, amount: req.body.amount, message: req.body.message || '' };
+    job.bids.push(bid);
     await job.save();
+    // Notify via socket
+    const io = req.app.get('io');
+    io?.to(`job:${job._id}`).emit('job:bid', {
+      jobId: job._id.toString(),
+      bid: { ...bid, freelancerId: req.user._id.toString() }
+    });
     res.status(201).json(job);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
@@ -134,6 +141,9 @@ export const claimJob = async (req, res) => {
     job.freelancerId = req.user._id;
     job.status = 'In Progress';
     await job.save();
+    // Notify via socket
+    const io = req.app.get('io');
+    io?.to(`job:${job._id}`).emit('job:claimed', { jobId: job._id.toString(), freelancerId: req.user._id.toString() });
     res.json(job);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
@@ -168,6 +178,44 @@ export const markCompleted = async (req, res) => {
 
     job.status = 'Completed';
     await job.save();
+    const io = req.app.get('io');
+    io?.to(`job:${job._id}`).emit('job:status', { jobId: job._id.toString(), status: job.status });
+    res.json(job);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const freelancerMarkComplete = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const job = await Job.findById(id);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+    if (job.freelancerId?.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Not your assigned job' });
+    if (job.status !== 'In Progress') return res.status(400).json({ message: 'Job not in progress' });
+
+    job.completedByFreelancer = true;
+    await job.save();
+    const io = req.app.get('io');
+    io?.to(`job:${job._id}`).emit('job:freelancer_marked_complete', { jobId: job._id.toString() });
+    res.json(job);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const clientConfirmComplete = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const job = await Job.findById(id);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+    if (job.clientId.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Not your job' });
+
+    job.completionConfirmedByClient = true;
+    job.status = 'Completed';
+    await job.save();
+    const io = req.app.get('io');
+    io?.to(`job:${job._id}`).emit('job:completed', { jobId: job._id.toString() });
     res.json(job);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });

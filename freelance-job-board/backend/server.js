@@ -7,9 +7,19 @@ import authRoutes from './routes/authRoutes.js';
 import jobRoutes from './routes/jobRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
+import http from 'http';
+import { Server as SocketIOServer } from 'socket.io';
 
 dotenv.config();
 const app = express();
+const server = http.createServer(app);
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE']
+  }
+});
+app.set('io', io);
 
 app.use(cors());
 app.use(express.json());
@@ -34,4 +44,16 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// Socket.io events
+io.on('connection', (socket) => {
+  socket.on('join', ({ jobId }) => {
+    if (jobId) socket.join(`job:${jobId}`);
+  });
+
+  socket.on('leave', ({ jobId }) => {
+    if (jobId) socket.leave(`job:${jobId}`);
+  });
+});
+
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

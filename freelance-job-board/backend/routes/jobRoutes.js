@@ -15,7 +15,9 @@ import {
   markCompleted,
   assignFreelancer,
   updateStatus,
-  search
+  search,
+  freelancerMarkComplete,
+  clientConfirmComplete
 } from '../controllers/jobController.js';
 
 const router = express.Router();
@@ -62,5 +64,7 @@ router.post('/:id/accept/:bidId', protect, requireRole('Client'), acceptBid);
 router.post('/:id/complete', protect, requireRole('Client'), markCompleted);
 router.put('/assign/:id/:freelancerId', protect, requireRole('Client'), assignFreelancer);
 router.put('/status/:id', protect, requireRole('Client'), updateStatus);
+router.put('/mark-complete/:id', protect, requireRole('Freelancer'), freelancerMarkComplete);
+router.put('/confirm-complete/:id', protect, requireRole('Client'), clientConfirmComplete);
 
 export default router;

@@ -19,6 +19,8 @@ const jobSchema = new mongoose.Schema(
     clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     freelancerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     status: { type: String, enum: ['Open', 'In Progress', 'Completed'], default: 'Open' },
+    completedByFreelancer: { type: Boolean, default: false },
+    completionConfirmedByClient: { type: Boolean, default: false },
     bids: [bidSchema]
   },
   { timestamps: true }

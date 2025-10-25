@@ -24,7 +24,30 @@ export const AuthProvider = ({ children }) => {
     const enableDark = storedDark ? storedDark === 'dark' : prefersDark
     setDark(enableDark)
     document.documentElement.classList.toggle('dark', enableDark)
-    setLoading(false)
+    const bootstrap = async () => {
+      // Only fetch /auth/me if we have a token
+      let tok = null
+      const storedAuth = localStorage.getItem('auth')
+      if (storedAuth) {
+        try { tok = JSON.parse(storedAuth).token } catch {}
+      }
+      if (!tok) { setLoading(false); return }
+      try {
+        const { data } = await api.get('/auth/me')
+        if (data?._id) {
+          setUser(data)
+          localStorage.setItem('auth', JSON.stringify({ user: data, token: tok }))
+        }
+      } catch {
+        // Token invalid/expired -> clear once
+        localStorage.removeItem('auth')
+        setUser(null)
+        setToken(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+    bootstrap()
   }, [])
 
   const saveAuth = (payload) => {
